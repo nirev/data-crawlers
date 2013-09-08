@@ -3,6 +3,10 @@
 require 'rubygems'
 require 'active_support/time'
 require 'nokogiri' 
+require 'open-uri'
+
+datelimit = Date.today - 1.days
+price_limit = 2300
 
 base_url = 'http://www.zap.com.br/imoveis/sao-paulo+sao-paulo+%s/apartamento-padrao/aluguel/?tipobusca=rapida&rangeValor=0-2300&foto=1&ord=dataatualizacao'
 bairros = [
@@ -19,18 +23,10 @@ bairros = [
             'sumarezinho'
           ]
 
-datelimit = Date.today - 1.days
-price_limit = 2300
-
-if false
-  ScraperWiki::sqliteexecute("CREATE TABLE `swdata` (`url` text, `data` text, `total` integer, `bairro` text, `rua` text, `area` text, `dorms` text, `aluguel` text, `cond` text, `iptu` text)")
-end
-
 bairros.each do |bairro|
   url = base_url % bairro
   
-  html = ScraperWiki::scrape(url)
-  doc = Nokogiri::HTML(html, nil, 'ISO-8859-1')
+  doc = Nokogiri::HTML(open(url), nil, 'ISO-8859-1')
   page = 1
 
   doc.css('.itemOf').each do |item|
@@ -43,7 +39,7 @@ bairros.each do |bairro|
     data['bairro'] = bairro
     data['data'] = date_str
     
-    itempage = Nokogiri::HTML(ScraperWiki::scrape(data['url']), nil, 'ISO-8859-1')
+    itempage = Nokogiri::HTML(open(data['url']), nil, 'ISO-8859-1')
     data['rua'] = itempage.at_css('span.street-address').text if itempage.at_css('span.street-address')
     itempage.css('ul.fc-detalhes li').each do |attr|
       case attr.css('span').first
@@ -62,6 +58,6 @@ bairros.each do |bairro|
     ['aluguel', 'cond', 'iptu'].each {|x| data['total'] += data[x].split.last.gsub('.','').to_i if data[x]}
     end
 
-    ScraperWiki::save_sqlite(['url'], data) if (data['total'] < price_limit)
+    puts data if data['total'] < price_limit
   end
 end
